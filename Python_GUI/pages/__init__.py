@@ -5,6 +5,7 @@ from .ActiveTrialPage import ActiveTrialPage
 from .ActiveTrialSettingsPage import ActiveTrialSettingsPage
 from .ActiveTrialBasicSettingsPage import ActiveTrialBasicSettingsPage
 from .BioFeedbackPage import BioFeedbackPage
+from .MotionSensingPage import MotionSensingPage
 
 __all__ = [
     'ScanWindowQt',
@@ -12,4 +13,5 @@ __all__ = [
     'ActiveTrialSettingsPage',
     'ActiveTrialBasicSettingsPage',
     'BioFeedbackPage',
+    'MotionSensingPage',
 ]

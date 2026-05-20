@@ -28,13 +28,13 @@ void create_plotting_titles(uint8_t* config_to_send) {
     // Initial check for minimum size including START and END markers
     if (!output_buffer || buffer_size < MAX_COMBINED_HEADER_LENGTH) {
         Serial.println("Error: Header buffer too small or null."); 
-        return false;
+        return;
     }
 
     // 1. Initialize the buffer with the start marker "t,"
     if (buffer_size < START_LEN + END_LEN + 1) { // Check minimum space for just markers
         Serial.println("Error: Cannot fit start and end markers.");
-        return false;
+        return;
     }
     
     // Copy "t," to the buffer and track the current length
@@ -58,7 +58,7 @@ void create_plotting_titles(uint8_t* config_to_send) {
         if (required_space_for_data > buffer_size) {
             Serial.println("Error: Header buffer overflow prevented during string combination.");
             output_buffer[0] = '\0'; // Clear buffer on failure
-            return false;
+            return;
         }
 
         // a. Append the column string

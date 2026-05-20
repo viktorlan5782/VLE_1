@@ -1,0 +1,9 @@
+metric,n_exo,n_noexo,median_exo,median_noexo,median_diff_exo_minus_noexo,ci95_low,ci95_high,cliffs_delta,p_value_mann_whitney,interpretation
+stance_duration_s,123,30,0.7,0.6,0.1,0.05,0.15,0.382114,0.00119651,exploratory_significant
+swing_duration_s,123,30,0.55,0.55,0,-0.05,0.05,-0.0168022,0.88672,not_significant
+peak_total_g,123,30,26097,29317.5,-3220.5,-4824,-966.338,-0.376152,0.00142686,exploratory_significant
+loading_rate_g_s,123,30,95840,110530,-14690,-51930.8,13812,-0.157182,0.182648,not_significant
+cop_ap_excursion_norm,123,30,0.363269,0.496839,-0.13357,-0.179027,-0.074601,-0.299729,0.0110466,exploratory_significant
+cop_ml_excursion_norm,123,30,0.368544,0.823917,-0.455373,-0.53965,-0.086981,-0.287263,0.0148701,exploratory_significant
+peak_tau_proxy_pf_nm,123,30,11.8263,22.7203,-10.894,-14.3813,-6.25423,-0.489702,3.29749e-05,exploratory_significant
+tau_proxy_impulse_nm_s,123,30,3.47125,5.53862,-2.06737,-3.4692,0.0470321,-0.279404,0.0178413,not_significant

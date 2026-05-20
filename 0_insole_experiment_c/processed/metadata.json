@@ -1,0 +1,234 @@
+{
+  "parameters": {
+    "sampling_rate_hz": 20.0,
+    "expected_sample_period_s": 0.05,
+    "expected_packet_period_us": 50000,
+    "timeout_s": 0.15,
+    "total_stance_threshold_g": 2000.0,
+    "cop_min_total_g": 200.0,
+    "min_state_frames": 3,
+    "saturation_threshold_g": 65000.0,
+    "foot_length_m": 0.21089,
+    "ankle_x_ap_norm": 0.18,
+    "tau_proxy_scale": 1.0,
+    "tau_max_nm": 1.5,
+    "pressure_unit": "g, positive compressive normal load",
+    "force_conversion": "Fz_N = total_g * 0.00980665",
+    "coordinate_convention": "AP 0=heel, 1=toe; ML 0=centerline, +ML=lateral for left foot",
+    "torque_convention": "tau_proxy_pf_nm is plantarflexion-positive; OpenExo ankle command is dorsiflexion-positive",
+    "timeline_note": "Input CSV timestamps are second-resolution; time_s is reconstructed from row order at 20 Hz."
+  },
+  "files": [
+    {
+      "source_file": "2026-5-14_levelground 1_left.csv",
+      "activity_hint": "level_walking",
+      "raw_rows": 1173,
+      "clean_rows": 1173,
+      "removed_overlap_rows": 0,
+      "first_timestamp": "2026-05-14 22:45:53",
+      "last_timestamp": "2026-05-14 22:58:51",
+      "last_write_time": "2026-05-14T22:59:10",
+      "cycle_count": 19,
+      "quality_flags": {
+        "cop_invalid": 296,
+        "low_pressure": 93
+      }
+    },
+    {
+      "source_file": "2026-5-14_levelground 2_left.csv",
+      "activity_hint": "level_walking",
+      "raw_rows": 2651,
+      "clean_rows": 1478,
+      "removed_overlap_rows": 1173,
+      "first_timestamp": "2026-05-14 22:58:51",
+      "last_timestamp": "2026-05-14 23:00:20",
+      "last_write_time": "2026-05-14T23:00:38",
+      "cycle_count": 17,
+      "quality_flags": {
+        "cop_invalid": 659,
+        "low_pressure": 597
+      }
+    },
+    {
+      "source_file": "2026-5-14_sit to stand_left.csv",
+      "activity_hint": "sittostand",
+      "raw_rows": 5695,
+      "clean_rows": 3044,
+      "removed_overlap_rows": 2651,
+      "first_timestamp": "2026-05-14 23:00:20",
+      "last_timestamp": "2026-05-14 23:02:52",
+      "last_write_time": "2026-05-14T23:03:16",
+      "cycle_count": 45,
+      "quality_flags": {
+        "cop_invalid": 1826,
+        "low_pressure": 814
+      }
+    },
+    {
+      "source_file": "2026-5-14_ramp_left.csv",
+      "activity_hint": "ramp",
+      "raw_rows": 8834,
+      "clean_rows": 3139,
+      "removed_overlap_rows": 5695,
+      "first_timestamp": "2026-05-14 23:02:53",
+      "last_timestamp": "2026-05-14 23:05:29",
+      "last_write_time": "2026-05-14T23:05:44",
+      "cycle_count": 1,
+      "quality_flags": {
+        "cop_invalid": 2
+      }
+    },
+    {
+      "source_file": "2026-5-14_stair1_left.csv",
+      "activity_hint": "stair1",
+      "raw_rows": 11507,
+      "clean_rows": 2673,
+      "removed_overlap_rows": 8834,
+      "first_timestamp": "2026-05-14 23:05:30",
+      "last_timestamp": "2026-05-14 23:08:06",
+      "last_write_time": "2026-05-14T23:08:20",
+      "cycle_count": 23,
+      "quality_flags": {
+        "cop_invalid": 374,
+        "low_pressure": 292
+      }
+    },
+    {
+      "source_file": "2026-5-14_stair2_left.csv",
+      "activity_hint": "stair2",
+      "raw_rows": 13077,
+      "clean_rows": 1570,
+      "removed_overlap_rows": 11507,
+      "first_timestamp": "2026-05-14 23:08:06",
+      "last_timestamp": "2026-05-14 23:09:25",
+      "last_write_time": "2026-05-14T23:09:36",
+      "cycle_count": 18,
+      "quality_flags": {
+        "cop_invalid": 252,
+        "low_pressure": 125
+      }
+    },
+    {
+      "source_file": "2026-5-14_noexo.csv",
+      "activity_hint": "noexo_control",
+      "raw_rows": 15710,
+      "clean_rows": 2633,
+      "removed_overlap_rows": 13077,
+      "first_timestamp": "2026-05-14 23:09:25",
+      "last_timestamp": "2026-05-14 23:26:05",
+      "last_write_time": "2026-05-14T23:26:23",
+      "cycle_count": 30,
+      "quality_flags": {
+        "cop_invalid": 803,
+        "low_pressure": 653
+      }
+    }
+  ],
+  "comparison": [
+    {
+      "metric": "stance_duration_s",
+      "n_exo": 123,
+      "n_noexo": 30,
+      "median_exo": 0.7,
+      "median_noexo": 0.6,
+      "median_diff_exo_minus_noexo": 0.09999999999999998,
+      "ci95_low": 0.04999999999999993,
+      "ci95_high": 0.1499999999999999,
+      "cliffs_delta": 0.3821138211382114,
+      "p_value_mann_whitney": 0.0011965113493625772,
+      "interpretation": "exploratory_significant"
+    },
+    {
+      "metric": "swing_duration_s",
+      "n_exo": 123,
+      "n_noexo": 30,
+      "median_exo": 0.55,
+      "median_noexo": 0.55,
+      "median_diff_exo_minus_noexo": 0.0,
+      "ci95_low": -0.04999999999999993,
+      "ci95_high": 0.050000000000000044,
+      "cliffs_delta": -0.016802168021680216,
+      "p_value_mann_whitney": 0.8867203427447935,
+      "interpretation": "not_significant"
+    },
+    {
+      "metric": "peak_total_g",
+      "n_exo": 123,
+      "n_noexo": 30,
+      "median_exo": 26097.0,
+      "median_noexo": 29317.5,
+      "median_diff_exo_minus_noexo": -3220.5,
+      "ci95_low": -4824.0,
+      "ci95_high": -966.3375000000036,
+      "cliffs_delta": -0.3761517615176152,
+      "p_value_mann_whitney": 0.0014268600253614606,
+      "interpretation": "exploratory_significant"
+    },
+    {
+      "metric": "loading_rate_g_s",
+      "n_exo": 123,
+      "n_noexo": 30,
+      "median_exo": 95840.0,
+      "median_noexo": 110530.0,
+      "median_diff_exo_minus_noexo": -14690.0,
+      "ci95_low": -51930.75,
+      "ci95_high": 13811.999999999989,
+      "cliffs_delta": -0.15718157181571815,
+      "p_value_mann_whitney": 0.18264772254222442,
+      "interpretation": "not_significant"
+    },
+    {
+      "metric": "cop_ap_excursion_norm",
+      "n_exo": 123,
+      "n_noexo": 30,
+      "median_exo": 0.363269,
+      "median_noexo": 0.4968395,
+      "median_diff_exo_minus_noexo": -0.13357049999999998,
+      "ci95_low": -0.17902742499999996,
+      "ci95_high": -0.07460099999999997,
+      "cliffs_delta": -0.2997289972899729,
+      "p_value_mann_whitney": 0.011046648608773354,
+      "interpretation": "exploratory_significant"
+    },
+    {
+      "metric": "cop_ml_excursion_norm",
+      "n_exo": 123,
+      "n_noexo": 30,
+      "median_exo": 0.368544,
+      "median_noexo": 0.823917,
+      "median_diff_exo_minus_noexo": -0.455373,
+      "ci95_low": -0.5396497,
+      "ci95_high": -0.08698097500000009,
+      "cliffs_delta": -0.2872628726287263,
+      "p_value_mann_whitney": 0.014870114647603938,
+      "interpretation": "exploratory_significant"
+    },
+    {
+      "metric": "peak_tau_proxy_pf_nm",
+      "n_exo": 123,
+      "n_noexo": 30,
+      "median_exo": 11.826306,
+      "median_noexo": 22.72034,
+      "median_diff_exo_minus_noexo": -10.894034,
+      "ci95_low": -14.381308999999998,
+      "ci95_high": -6.254232525000007,
+      "cliffs_delta": -0.4897018970189702,
+      "p_value_mann_whitney": 3.297490538126532e-05,
+      "interpretation": "exploratory_significant"
+    },
+    {
+      "metric": "tau_proxy_impulse_nm_s",
+      "n_exo": 123,
+      "n_noexo": 30,
+      "median_exo": 3.471248,
+      "median_noexo": 5.5386225,
+      "median_diff_exo_minus_noexo": -2.0673744999999997,
+      "ci95_low": -3.4691988125000006,
+      "ci95_high": 0.04703206249999686,
+      "cliffs_delta": -0.27940379403794036,
+      "p_value_mann_whitney": 0.017841334090689935,
+      "interpretation": "not_significant"
+    }
+  ],
+  "geometry_source": "Documentation\\Insole_files\\insole_geometry_parameter.m"
+}

@@ -172,6 +172,60 @@ class ProportionalJointMoment : public _Controller
         float _inclination_scaling{1.0f};
 };
 
+/**
+ * @brief Dynamic Proportional Joint Moment Control (DPJMC)
+ * This ankle controller uses pressure/COP high-level input when valid.
+ *
+ * Sign convention:
+ * - Internal tau_des_pf_nm > 0 means plantarflexion assistance.
+ * - OpenExo ankle motor command > 0 means dorsiflexion, so output is negated.
+ */
+class DPJMC : public _Controller
+{
+    public:
+        DPJMC(config_defs::joint_id id, ExoData* exo_data);
+        ~DPJMC(){};
+
+        float calc_motor_cmd();
+
+    private:
+        enum State : uint8_t
+        {
+            StateZeroAssist = 0,
+            StateAssist = 1,
+            StateTransitionUnload = 2,
+            StateRecovery = 3
+        };
+
+        enum FaultFlag : uint32_t
+        {
+            FaultNone = 0,
+            FaultPressureInvalid = 1UL << 0,
+            FaultCopInvalid = 1UL << 1,
+            FaultPressureTimeout = 1UL << 2,
+            FaultLowPressure = 1UL << 3,
+            FaultHighLevel = 1UL << 4,
+            FaultIntentUnload = 1UL << 5
+        };
+
+        float _alpha{0.0f};
+        float _alpha_unload_start{0.0f};
+        float _alpha_recovery_start{0.0f};
+        float _alpha_recovery_target{0.0f};
+        float _previous_tau_des_pf_nm{0.0f};
+        uint32_t _last_update_us{0};
+        uint32_t _unload_start_us{0};
+        uint32_t _recovery_start_us{0};
+        bool _was_perturbed{false};
+
+        float _calc_pressure_age_ms(uint32_t now_us, uint32_t timestamp_us) const;
+        float _calc_tau_proxy_nm(const DPJMCHighLevelInput& hl) const;
+        float _calc_alpha_target(const DPJMCHighLevelInput& hl) const;
+        bool _is_perturbed(const DPJMCHighLevelInput& hl) const;
+        float _apply_tau_slew(float target_tau_pf_nm, float dt_s);
+        float _set_zero_output(uint8_t state, uint32_t fault_flags, float pressure_age_ms);
+};
+
 
 /**
  * @brief Zero Torque Controller

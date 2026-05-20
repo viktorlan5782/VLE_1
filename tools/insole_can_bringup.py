@@ -27,7 +27,8 @@ from typing import Dict, Iterable, List, Optional, Sequence, Tuple
 PACKET_LEN = 39
 PACKET_HEADER = 0xAA
 ZONE_COUNT = 18
-DEFAULT_CAN_ID = 0x001
+DEFAULT_CAN_IDS = (0x601, 0x602)
+SELF_TEST_CAN_ID = DEFAULT_CAN_IDS[0]
 DEFAULT_EXPECTED_PERIOD_MS = 50.0
 FOOT_LABELS = {1: "left", 2: "right"}
 
@@ -689,7 +690,7 @@ def parse_can_id(value: str) -> int:
 
 def parse_can_ids(values: Optional[Sequence[str]]) -> List[int]:
     if not values:
-        return [DEFAULT_CAN_ID]
+        return list(DEFAULT_CAN_IDS)
 
     ids: List[int] = []
     for value in values:
@@ -794,7 +795,7 @@ def run_self_test(monitor: InsoleCanMonitor) -> None:
     for packet_start_s in timestamps:
         for fragment_index, fragment in enumerate(iter_fragmented_payloads(sample)):
             monitor.feed_frame(
-                DEFAULT_CAN_ID,
+                SELF_TEST_CAN_ID,
                 fragment,
                 packet_start_s + fragment_index * 0.001,
                 dlc=len(fragment),
@@ -812,7 +813,7 @@ def run_input_hex(path: Path, monitor: InsoleCanMonitor, offline_frame_period_ms
     payload = parse_hex_bytes(read_text_guess_encoding(path))
     timestamp_s = 0.0
     for fragment in iter_fragmented_payloads(payload):
-        monitor.feed_frame(DEFAULT_CAN_ID, fragment, timestamp_s, dlc=len(fragment))
+        monitor.feed_frame(SELF_TEST_CAN_ID, fragment, timestamp_s, dlc=len(fragment))
         timestamp_s += offline_frame_period_ms / 1000.0
 
 
@@ -1028,7 +1029,7 @@ def build_arg_parser() -> argparse.ArgumentParser:
     parser.add_argument("--interface", help="python-can backend, e.g. pcan, kvaser, vector, slcan.")
     parser.add_argument("--channel", help="CAN channel, e.g. PCAN_USBBUS1 or COM11.")
     parser.add_argument("--bitrate", type=int, default=1_000_000, help="CAN bitrate, default 1000000.")
-    parser.add_argument("--can-id", action="append", help="CAN ID to reconstruct, e.g. 0x001. Can be repeated or comma-separated.")
+    parser.add_argument("--can-id", action="append", help="CAN ID to reconstruct, e.g. 0x601. Can be repeated or comma-separated.")
     parser.add_argument("--all-can-ids", action="store_true", help="Create one byte-stream parser per observed CAN ID.")
     parser.add_argument("--accept-extended", action="store_true", help="Accept extended CAN frames.")
     parser.add_argument("--listen-only", action="store_true", help="Request listen-only mode if the backend supports it.")

@@ -1,6 +1,7 @@
 #include "UARTHandler.h"
 #include "Utilities.h"
 #include "Logger.h"
+#include "uart_commands.h"
 
 #define MAX_NUM_LEGS 2
 #define MAX_NUM_JOINTS_PER_LEG 2 //Current PCB can only do 2 motors per side, if you have made a new PCB, update.
@@ -78,9 +79,26 @@ void UARTHandler::UART_msg(UART_msg_t msg)
     UART_msg(msg.command, msg.len, msg.joint_id, msg.data);
 }
 
+void UARTHandler::UART_raw_msg(uint8_t msg_id, uint8_t joint_id, const uint8_t* payload, uint8_t len)
+{
+    if (payload == NULL || len > UART_MSG_T_MAX_RAW_DATA_LEN)
+    {
+        return;
+    }
+
+    const uint8_t packed_len = (uint8_t)(sizeof(msg_id) + sizeof(joint_id) + len);
+    uint8_t byte_data[MAX_RX_LEN] = {0};
+    byte_data[COMMAND] = msg_id;
+    byte_data[JOINT_ID] = joint_id;
+    memcpy(byte_data + DATA_START, payload, len);
+
+    _send_packet(byte_data, packed_len);
+    MY_SERIAL.flush();
+}
+
 UART_msg_t UARTHandler::poll(float timeout_us)
 {
-    static UART_msg_t empty_msg = {0, 0, 0, 0};
+    static UART_msg_t empty_msg = {0};
     _timeout_us = timeout_us;
     
     uint32_t _available_bytes = check_for_data();
@@ -195,9 +213,19 @@ void UARTHandler::_pack(uint8_t msg_id, uint8_t len, uint8_t joint_id, float *da
 
 UART_msg_t UARTHandler::_unpack(uint8_t* data, uint16_t len)
 {
-    UART_msg_t msg;
+    UART_msg_t msg = {0};
     msg.command = data[COMMAND];
     msg.joint_id = data[JOINT_ID];
+
+    if (msg.command == UART_command_names::update_motion_telemetry)
+    {
+        const uint16_t raw_len = (len > DATA_START) ? (len - DATA_START) : 0;
+        msg.len = (raw_len > UART_MSG_T_MAX_RAW_DATA_LEN) ? UART_MSG_T_MAX_RAW_DATA_LEN : (uint8_t)raw_len;
+        msg.is_raw = true;
+        memcpy(msg.raw_data, data + DATA_START, msg.len);
+        return msg;
+    }
+
     float _total_len = len*sizeof(uint8_t);
     float _meta_len = sizeof(msg.command)+sizeof(msg.joint_id);
 #if UART_UNPACK_FLOATS

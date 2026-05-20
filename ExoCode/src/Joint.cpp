@@ -1016,6 +1016,7 @@ AnkleJoint::AnkleJoint(config_defs::joint_id id, ExoData* exo_data)
 , _step(id, exo_data)
 , _spv2(id, exo_data)
 , _pjmc_plus(id, exo_data)
+, _dpjmc(id, exo_data)
 {
     #ifdef JOINT_DEBUG
         logger::print(_is_left ? "Left " : "Right ");
@@ -1308,6 +1309,9 @@ void AnkleJoint::set_controller(uint8_t controller_id)  //Changes the high level
             break;
 		case (uint8_t)config_defs::ankle_controllers::pjmc_plus:
             _controller = &_pjmc_plus;
+            break;
+        case (uint8_t)config_defs::ankle_controllers::dpjmc:
+            _controller = &_dpjmc;
             break;
         default :
             logger::print("Unkown Controller!\n", LogLevel::Error);

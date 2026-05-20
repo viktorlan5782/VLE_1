@@ -25,6 +25,9 @@
 #include "StatusLed.h"
 #include "StatusDefs.h"
 #include "Config.h"
+#include "PressureInsoleCanReader.h"
+#include "PressureInsoleHighLevel.h"
+#include "MotionTelemetry.h"
 
 class Exo
 {
@@ -38,10 +41,20 @@ class Exo
          * @return false 
          */
         bool run();  
+
+        /**
+         * @brief Injects one decoded pressure-insole raw frame for high-level DPJMC processing.
+         *
+         * This does not alter the legacy heel/toe FSR gait path.
+         */
+        void set_pressure_insole_frame(bool is_left, const InsoleRawFrame& frame);
 		
         ExoData *data;      /**< Pointer to ExoData that is getting updated by the coms mcu so they share format.*/
         Side left_side;     /**< Left side object that contains all the joints and sensors for that side */
         Side right_side;    /**< Right side object that contains all the joints and sensors for that side */
+        PressureInsoleCanReader _insole_can_reader; /**< CAN byte-stream decoder for pressure-insole raw frames. */
+        PressureInsoleHighLevel _insole_hl; /**< Raw pressure-insole high-level FSM for DPJMC. */
+        motion_telemetry::Publisher _motion_telemetry; /**< Page-scoped binary motion telemetry publisher. */
         
         #ifdef USE_SPEED_CHECK
             utils::SpeedCheck speed_check; /**< Used to check the speed of the loop without needing prints */

@@ -26,6 +26,7 @@ ExoData::ExoData(uint8_t* config_to_send)
     this->error_code = static_cast<int>(NO_ERROR);
     this->error_joint_id = 0;
     this->user_paused = false;
+    this->motion_telemetry_enabled = false;
 
     //If statement that determines if torque sensor is used for that joint (See Board.h for available torque sensor pins)
     if ((config_to_send[config_defs::hip_use_torque_sensor_idx] == (uint8_t)config_defs::use_torque_sensor::yes))

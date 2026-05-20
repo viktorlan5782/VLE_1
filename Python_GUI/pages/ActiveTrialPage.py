@@ -28,6 +28,7 @@ class ActiveTrialPage(QtWidgets.QWidget):
     saveCsvRequested = QtCore.Signal()
     updateControllerRequested = QtCore.Signal()
     bioFeedbackRequested = QtCore.Signal()
+    motionSensingRequested = QtCore.Signal()
     machineLearningRequested = QtCore.Signal()
     recalibrateFSRRequested = QtCore.Signal()
     sendPresetFSRRequested = QtCore.Signal()
@@ -66,7 +67,7 @@ class ActiveTrialPage(QtWidgets.QWidget):
         buttons = [
             self.btn_toggle_points, self.btn_end_trial, self.btn_save_csv,
             self.btn_set_preamble, self.btn_update_controller, self.btn_bio_feedback,
-            self.btn_ml, self.btn_recal_fsr, self.btn_send_preset_fsr, self.btn_recal_torque,
+            self.btn_motion_sensing, self.btn_ml, self.btn_recal_fsr, self.btn_send_preset_fsr, self.btn_recal_torque,
             self.btn_mark, self.btn_pause_play,
         ]
         target_width = None
@@ -186,6 +187,9 @@ class ActiveTrialPage(QtWidgets.QWidget):
         
         self.btn_bio_feedback = QtWidgets.QPushButton("Bio Feedback")
         controls.addWidget(self.btn_bio_feedback)
+
+        self.btn_motion_sensing = QtWidgets.QPushButton("Motion Sensing")
+        controls.addWidget(self.btn_motion_sensing)
         
         self.btn_ml = QtWidgets.QPushButton("Machine Learning")
         controls.addWidget(self.btn_ml)
@@ -264,6 +268,7 @@ class ActiveTrialPage(QtWidgets.QWidget):
         self.btn_set_preamble.clicked.connect(self._on_set_preamble_clicked)
         self.btn_update_controller.clicked.connect(self.updateControllerRequested.emit)
         self.btn_bio_feedback.clicked.connect(self.bioFeedbackRequested.emit)
+        self.btn_motion_sensing.clicked.connect(self.motionSensingRequested.emit)
         self.btn_ml.clicked.connect(self.machineLearningRequested.emit)
         self.btn_recal_fsr.clicked.connect(self.recalibrateFSRRequested.emit)
         self.btn_send_preset_fsr.clicked.connect(self.sendPresetFSRRequested.emit)
@@ -274,7 +279,7 @@ class ActiveTrialPage(QtWidgets.QWidget):
         buttons = [
             self.btn_toggle_points, self.btn_end_trial, self.btn_save_csv,
             self.btn_set_preamble, self.btn_update_controller, self.btn_bio_feedback,
-            self.btn_ml, self.btn_recal_fsr, self.btn_send_preset_fsr, self.btn_recal_torque,
+            self.btn_motion_sensing, self.btn_ml, self.btn_recal_fsr, self.btn_send_preset_fsr, self.btn_recal_torque,
             self.btn_mark, self.btn_pause_play,
         ]
         apply_button_style_batch(buttons, height=UIConfig.BTN_HEIGHT_SMALL, padding="6px 10px")

@@ -1,11 +1,28 @@
 
 
 #if defined(ARDUINO_TEENSY36)  || defined(ARDUINO_TEENSY41)
+#include <Arduino.h>
 #include "ListCtrlParams.h"
+#include <string.h>
 
-char txBuffer_bulkStr[MAX_MESSAGE_SIZE];
+DMAMEM char txBuffer_bulkStr[MAX_MESSAGE_SIZE];
+
+namespace
+{
+    // These setup-only metadata buffers are intentionally file-local and kept in RAM2.
+    // Defining them in the header duplicated ~29 kB per translation unit in RAM1.
+    DMAMEM char stringArray[MAX_SNAPSHOTS][MAX_COLUMNS][MAX_STRING_LENGTH];
+
+    uint8_t failed2open;
+    const int PREFIX_COLS = 4;
+    const size_t MAX_NAME_LENGTH = 64;
+    uint8_t joint_id_val;
+    char jointName[10];
+}
 
 void ctrl_param_array_gen(uint8_t* config_to_send) {
+    memset(stringArray, 0, sizeof(stringArray));
+
 	//Begin SD card
 	if (!SD.begin(SD_SELECT)) {
 			while (1)

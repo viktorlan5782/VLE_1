@@ -301,6 +301,21 @@ void ExoBLE::send_message(BleMessage &msg)
     _gatt_db.TXChar.writeValue(buffer, bytes_to_send);
 }
 
+void ExoBLE::send_raw_bytes(const uint8_t* data, size_t len)
+{
+    if (!this->_connected || data == nullptr || len == 0)
+    {
+        return;
+    }
+
+    if (len > _gatt_db.BUFFER_SIZE)
+    {
+        len = _gatt_db.BUFFER_SIZE;
+    }
+
+    _gatt_db.TXChar.writeValue(data, len);
+}
+
 void ExoBLE::send_error(int error_code, int joint_id)
 {
     if (!this->_connected)

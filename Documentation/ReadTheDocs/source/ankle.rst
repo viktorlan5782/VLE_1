@@ -12,3 +12,4 @@ Overview of the ankle controllers.
    ZhangCollins
    SPV2
    PJMC_Plus
+   DPJMC

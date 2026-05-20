@@ -25,6 +25,8 @@ SideData::SideData(bool is_left, uint8_t* config_to_send)
     this->expected_stance_duration = -1;
     this->heel_fsr = -1; 
     this->toe_fsr = -1;
+    this->latest_valid_insole_raw.reset();
+    this->dpjmc_hl.reset();
     this->do_calibration_toe_fsr = false; 
     this->do_calibration_refinement_toe_fsr = false; 
     this->do_calibration_heel_fsr = false; 
@@ -76,5 +78,7 @@ void SideData::reconfigure(uint8_t* config_to_send)
     elbow.reconfigure(config_to_send);
     arm_1.reconfigure(config_to_send);
     arm_2.reconfigure(config_to_send);
+    latest_valid_insole_raw.reset();
+    dpjmc_hl.reset();
 };
  

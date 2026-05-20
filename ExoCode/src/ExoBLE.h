@@ -65,6 +65,7 @@ class ExoBLE
          * @param msg The message that you would like to send.
          */
         void send_message(BleMessage &msg);
+        void send_raw_bytes(const uint8_t* data, size_t len);
 
         /**
          * @brief Send an error code to the GUI, uses a seperate service and characteristic

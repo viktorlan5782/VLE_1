@@ -31,6 +31,26 @@ inline const char* getColumnHeader(uint8_t column_index, uint8_t* config_to_send
         
         case (uint8_t)config_defs::exo_name::bilateral_ankle:
         {
+            if (config_to_send[config_defs::exo_ankle_default_controller_idx] == (uint8_t)config_defs::ankle_controllers::dpjmc &&
+                (config_to_send[config_defs::exo_side_idx] == (uint8_t)config_defs::exo_side::left ||
+                 config_to_send[config_defs::exo_side_idx] == (uint8_t)config_defs::exo_side::right))
+            {
+                switch (column_index) {
+                    case 0:  return "Measured Torque";
+                    case 1:  return "Desired Torque";
+                    case 2:  return "DPJMC Alpha";
+                    case 3:  return "DPJMC Tau Des PF";
+                    case 4:  return "Pressure Total";
+                    case 5:  return "COP AP";
+                    case 6:  return "COP ML";
+                    case 7:  return "DPJMC State";
+                    case 8:  return "DPJMC Fault Flags";
+                    case 9:  return "Exoskeleton time (seconds)";
+                    case 10: return "Battery Level (Volts)";
+                    default: return "INVALID_COL";
+                }
+            }
+
             // Inner switch: Selects the specific column name for this mode (0-based)
             switch (column_index) {
                 case 0:  return "Desired Torque (L)";

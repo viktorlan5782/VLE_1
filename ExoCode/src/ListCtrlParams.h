@@ -8,7 +8,6 @@
 #include "ParseIni.h"
 #include "Utilities.h"
 #include "ParamsFromSD.h"
-#include "PlottingTitles.h"
 
 #include <SPI.h>
 #include <SD.h>
@@ -46,17 +45,6 @@ bool retrieveJointAndController(const char* filename_char, char* joint_out, char
 // Define txBuffer_bulkStr here too, as it's also global data
     // The 1D buffer that will hold the final, flattened CSV string
 	extern char txBuffer_bulkStr[MAX_MESSAGE_SIZE];
-
-namespace { // Use an anonymous namespace for file-local scope (Best Practice)
-    static char stringArray[MAX_SNAPSHOTS][MAX_COLUMNS][MAX_STRING_LENGTH]; 
-    
-	uint8_t failed2open;
-	// Define the number of prefix columns to insert
-	const int PREFIX_COLS = 4;
-	const size_t MAX_NAME_LENGTH = 64;
-	uint8_t joint_id_val;
-	char jointName[10];
-}
 
 
 #endif

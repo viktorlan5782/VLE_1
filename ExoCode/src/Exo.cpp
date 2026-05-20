@@ -45,6 +45,11 @@ Exo::Exo(ExoData* exo_data)
     #endif
 };
 
+void Exo::set_pressure_insole_frame(bool is_left, const InsoleRawFrame& frame)
+{
+    _insole_hl.set_raw_frame(is_left, frame);
+}
+
 /* 
  * Run the exo 
  */
@@ -86,6 +91,16 @@ bool Exo::run()
             data->for_each_joint([](JointData* j_data, float* args){j_data->motor.enabled = false;});
         }
 		
+        // Decode pressure-insole CAN frames before controller commands are calculated.
+        const uint32_t pressure_now_us = micros();
+        InsoleRawFrame insole_frame;
+        bool insole_is_left = false;
+        while (_insole_can_reader.read_frame(insole_frame, insole_is_left, pressure_now_us))
+        {
+            set_pressure_insole_frame(insole_is_left, insole_frame);
+        }
+        _insole_hl.update(data, pressure_now_us);
+
         //Record the side data and send new commands to the motors.
         left_side.run_side();
         right_side.run_side();
@@ -101,6 +116,7 @@ bool Exo::run()
         //Check for incoming UART messages
         UART_msg_t msg = handler->poll(UART_times::CONT_MCU_TIMEOUT);       //UART_times::CONT_MCU_TIMEOUT is in Config.h
         UART_command_utils::handle_msg(handler, data, msg);
+        _motion_telemetry.update(data, micros());
 
         //Send the coms mcu the real time data every _real_time_msg_delay microseconds
         rt_delta_t += t_helper->tick(rt_context);

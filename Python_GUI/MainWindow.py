@@ -17,8 +17,9 @@ from pages import (
     ActiveTrialSettingsPage,
     ActiveTrialBasicSettingsPage,
     BioFeedbackPage,
+    MotionSensingPage,
 )
-from services import QtExoDeviceManager, RtBridge
+from services import QtExoDeviceManager, RtBridge, MotionFrame, MotionTelemetryBridge
 
 
 class MainWindow(QtWidgets.QMainWindow):
@@ -42,12 +43,14 @@ class MainWindow(QtWidgets.QMainWindow):
         self.settings_page = ActiveTrialSettingsPage()
         self.basic_settings_page = ActiveTrialBasicSettingsPage()
         self.bio_feedback_page = BioFeedbackPage()
+        self.motion_sensing_page = MotionSensingPage()
 
         self.stack.addWidget(self.scan_page)
         self.stack.addWidget(self.trial_page)
         self.stack.addWidget(self.settings_page)
         self.stack.addWidget(self.basic_settings_page)
         self.stack.addWidget(self.bio_feedback_page)
+        self.stack.addWidget(self.motion_sensing_page)
 #     self.stack.setCurrentWidget(self.trial_page)
 
         # Simple top bar navigation
@@ -77,9 +80,11 @@ class MainWindow(QtWidgets.QMainWindow):
             self.logger.error(f"Failed to bind device manager to scan page: {e}")
             self.logger.debug(traceback.format_exc())
         self.rt_bridge = RtBridge(self)
-        # Wire bytes to parser and route RT data to plots
-        self.qt_dev.dataReceived.connect(self.rt_bridge.feed_bytes)
+        self.motion_bridge = MotionTelemetryBridge(self)
+        # Demultiplex binary motion telemetry before feeding legacy ASCII RT bytes.
+        self.qt_dev.dataReceived.connect(self._on_device_bytes)
         self.rt_bridge.rtDataUpdated.connect(self._on_rt_update)
+        self.motion_bridge.motionFrameUpdated.connect(self._on_motion_frame)
         self.rt_bridge.handshakeReceived.connect(self._on_handshake)
         self.rt_bridge.parameterNamesReceived.connect(self._on_param_names)
         self.rt_bridge.controllersReceived.connect(self._on_controllers)
@@ -95,6 +100,9 @@ class MainWindow(QtWidgets.QMainWindow):
         self._csv_path_last = None
         self._mark_counter = 0  # Trial mark counter
         self._csv_preamble = ""  # Preamble for CSV filename
+        self._motion_csv_file = None
+        self._motion_csv_writer = None
+        self._motion_csv_path_last = None
         # Store controller -> params 2D matrix
         self._controller_matrix = []
         # Device control wiring from ActiveTrialPage
@@ -109,6 +117,7 @@ class MainWindow(QtWidgets.QMainWindow):
         self.trial_page.saveCsvRequested.connect(self._on_save_csv)
         self.trial_page.updateControllerRequested.connect(self._on_update_controller)
         self.trial_page.bioFeedbackRequested.connect(self._on_bio_feedback)
+        self.trial_page.motionSensingRequested.connect(self._on_motion_sensing)
         self.trial_page.machineLearningRequested.connect(self._on_machine_learning)
         # Update Scan page status from device manager
         self.qt_dev.log.connect(self._on_dev_log)
@@ -126,6 +135,11 @@ class MainWindow(QtWidgets.QMainWindow):
         self.bio_feedback_page.deviceStopRequested.connect(self._on_device_stop_motors)
         self.bio_feedback_page.recalibrateFSRRequested.connect(self._on_recal_fsr)
         self.bio_feedback_page.markTrialRequested.connect(self._on_mark)
+        self.motion_sensing_page.backRequested.connect(self._on_motion_sensing_back)
+        self.motion_sensing_page.deviceStartRequested.connect(self._on_device_start)
+        self.motion_sensing_page.deviceStopRequested.connect(self._on_device_stop_motors)
+        self.motion_sensing_page.markTrialRequested.connect(self._on_mark)
+        self.motion_sensing_page.endTrialRequested.connect(self._on_end_trial)
         
         # Display log file location for debugging
         log_path = self.qt_dev.get_log_file_path()
@@ -141,6 +155,8 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def _go_trial(self):
         self.stack.setCurrentWidget(self.trial_page)
+        self._stop_motion_monitoring()
+        self.motion_sensing_page.clear()
         # Stop simulation so live data drives plots if available
         self.trial_page.stop_sim()
         # Clear old plot data
@@ -224,6 +240,31 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.logger.debug(traceback.format_exc())
         except Exception as e:
             self.logger.error(f"Failed to process RT update: {e}")
+            self.logger.debug(traceback.format_exc())
+
+    @QtCore.Slot(bytes)
+    def _on_device_bytes(self, payload: bytes):
+        try:
+            for chunk in self.motion_bridge.route_bytes(payload):
+                if chunk:
+                    self.rt_bridge.feed_bytes(chunk)
+        except Exception as e:
+            self.logger.error(f"Failed to route device bytes: {e}")
+            self.logger.debug(traceback.format_exc())
+
+    @QtCore.Slot(object)
+    def _on_motion_frame(self, frame: MotionFrame):
+        try:
+            self.motion_sensing_page.apply_frame(frame)
+        except Exception as e:
+            self.logger.error(f"Failed to apply motion frame: {e}")
+            self.logger.debug(traceback.format_exc())
+
+        try:
+            if self._motion_csv_writer is not None:
+                self._motion_csv_writer.writerow(frame.to_csv_row(time.time()))
+        except Exception as e:
+            self.logger.error(f"Failed to write motion CSV row: {e}")
             self.logger.debug(traceback.format_exc())
 
     @QtCore.Slot(str)
@@ -405,6 +446,11 @@ class MainWindow(QtWidgets.QMainWindow):
         except Exception as e:
             self.logger.error(f"Failed to update bio feedback page mark count: {e}")
             self.logger.debug(traceback.format_exc())
+        try:
+            self.motion_sensing_page.update_mark_count(self._mark_counter)
+        except Exception as e:
+            self.logger.error(f"Failed to update motion sensing page mark count: {e}")
+            self.logger.debug(traceback.format_exc())
 
     @QtCore.Slot()
     def _on_end_trial(self):
@@ -421,6 +467,7 @@ class MainWindow(QtWidgets.QMainWindow):
             try:
                 self.qt_dev.write(b'G')  # Stop trial
                 self.qt_dev.write(b'w')  # Motor off - CRITICAL SAFETY COMMAND
+                self.qt_dev.disableMotionTelemetry()
                 self.logger.info("Sent stop trial and motor off commands")
             except Exception as e:
                 self.logger.error(f"CRITICAL: Failed to send stop/motor off commands: {e}")
@@ -440,6 +487,7 @@ class MainWindow(QtWidgets.QMainWindow):
             
             # Navigate to scan page immediately
             self.stack.setCurrentWidget(self.scan_page)
+            self.motion_sensing_page.stop_monitoring()
             
             # Wait 200ms to ensure motor off command is sent before disconnecting
             QtCore.QTimer.singleShot(200, self.qt_dev.disconnect)
@@ -468,6 +516,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 except Exception as e:
                     self.logger.error(f"Failed to reset mark count: {e}")
                     self.logger.debug(traceback.format_exc())
+            self._close_motion_csv()
         except Exception as e:
             self.logger.error(f"Failed to end trial: {e}")
             self.logger.debug(traceback.format_exc())
@@ -476,6 +525,7 @@ class MainWindow(QtWidgets.QMainWindow):
     def _on_disconnect(self):
         try:
             self.logger.info("Manual disconnect requested")
+            self._stop_motion_monitoring()
             # Disconnect immediately (non-blocking, no popup)
             self.qt_dev.disconnect()
             
@@ -505,6 +555,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 except Exception as e:
                     self.logger.error(f"Failed to reset mark count on disconnect: {e}")
                     self.logger.debug(traceback.format_exc())
+            self._close_motion_csv()
         except Exception as e:
             self.logger.error(f"Failed to disconnect: {e}")
             self.logger.debug(traceback.format_exc())
@@ -601,6 +652,37 @@ class MainWindow(QtWidgets.QMainWindow):
             self.logger.error(f"Failed to stop plotting on bio feedback page: {e}")
             self.logger.debug(traceback.format_exc())
         self.stack.setCurrentWidget(self.trial_page)
+
+    @QtCore.Slot()
+    def _on_motion_sensing(self):
+        self.logger.info("Navigating to motion sensing page")
+        try:
+            if self._motion_csv_file is None:
+                self._start_motion_csv_auto()
+            self.motion_sensing_page.start_monitoring()
+            self.qt_dev.enableMotionTelemetry()
+            self.stack.setCurrentWidget(self.motion_sensing_page)
+        except Exception as e:
+            self.logger.error(f"Failed to enter motion sensing page: {e}")
+            self.logger.debug(traceback.format_exc())
+
+    @QtCore.Slot()
+    def _on_motion_sensing_back(self):
+        self.logger.info("Navigating back from motion sensing page")
+        self._stop_motion_monitoring()
+        self.stack.setCurrentWidget(self.trial_page)
+
+    def _stop_motion_monitoring(self):
+        try:
+            self.motion_sensing_page.stop_monitoring()
+        except Exception as e:
+            self.logger.error(f"Failed to stop motion sensing page: {e}")
+            self.logger.debug(traceback.format_exc())
+        try:
+            self.qt_dev.disableMotionTelemetry()
+        except Exception as e:
+            self.logger.error(f"Failed to disable motion telemetry: {e}")
+            self.logger.debug(traceback.format_exc())
 
     @QtCore.Slot()
     def _on_machine_learning(self):
@@ -708,6 +790,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 self.logger.debug(traceback.format_exc())
             # Navigate back to the Scan page on unexpected disconnect
             self.stack.setCurrentWidget(self.scan_page)
+            self.motion_sensing_page.stop_monitoring()
             
             # Ensure CSV is closed and announce saved path
             if self._csv_file is not None:
@@ -733,6 +816,7 @@ class MainWindow(QtWidgets.QMainWindow):
                 except Exception as e:
                     self.logger.error(f"Failed to reset mark count after disconnect: {e}")
                     self.logger.debug(traceback.format_exc())
+            self._close_motion_csv()
         except Exception as e:
             self.logger.error(f"Failed to handle device disconnect: {e}")
             self.logger.debug(traceback.format_exc())
@@ -775,4 +859,45 @@ class MainWindow(QtWidgets.QMainWindow):
             self.logger.debug(traceback.format_exc())
             self._csv_file = None
             self._csv_writer = None
+
+    def _start_motion_csv_auto(self):
+        base_dir = os.path.dirname(__file__)
+        save_dir = os.path.join(base_dir, "Saved_Data")
+        try:
+            os.makedirs(save_dir, exist_ok=True)
+        except Exception as e:
+            self.logger.error(f"Failed to create motion CSV directory: {e}")
+            self.logger.debug(traceback.format_exc())
+
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        if self._csv_preamble:
+            fname = os.path.join(save_dir, f"{self._csv_preamble}_motion_{ts}.csv")
+        else:
+            fname = os.path.join(save_dir, f"motion_{ts}.csv")
+        try:
+            self._motion_csv_file = open(fname, "w", newline="")
+            self._motion_csv_writer = csv.writer(self._motion_csv_file)
+            self._motion_csv_writer.writerow(MotionFrame.csv_header())
+            self._motion_csv_path_last = fname
+            self.logger.info(f"Started motion CSV logging to: {fname}")
+        except Exception as e:
+            self.logger.error(f"Failed to start motion CSV logging: {e}")
+            self.logger.debug(traceback.format_exc())
+            self._motion_csv_file = None
+            self._motion_csv_writer = None
+            self._motion_csv_path_last = None
+
+    def _close_motion_csv(self):
+        if self._motion_csv_file is None:
+            return
+        try:
+            self._motion_csv_file.flush()
+            self._motion_csv_file.close()
+            self.logger.info(f"Motion CSV file closed: {self._motion_csv_path_last}")
+        except Exception as e:
+            self.logger.error(f"Failed to close motion CSV file: {e}")
+            self.logger.debug(traceback.format_exc())
+        finally:
+            self._motion_csv_file = None
+            self._motion_csv_writer = None
 

@@ -1,0 +1,6 @@
+5,"header Size, the first N rows will be ignored, except for this first cells in the first two rows",,,,,,,,,,,,,,,,,,,,,,
+23,"parameter number, the number of parameters to read per line",,,,,,,,,,,,,,,,,,,,,,
+,Parameter list for the DPJMC (dynamic proportional joint moment controller),,,,,,,,,,,,,,,,,,,,,,
+,Parameter order : ,,,,,,,,,,,,,,,,,,,,,,
+alpha_base,alpha_min,alpha_max,tau_max_nm,tau_slew_rate_nm_s,pressure_timeout_ms,p_total_min,ankle_x_ap_norm,tau_proxy_scale_nm,cop_ap_midfoot_on_norm,cop_ap_forefoot_on_norm,cop_ml_dev_threshold_norm,cop_ml_dot_threshold_norm_s,ml_pressure_diff_threshold,k_ap_pos,k_ap_vel,t_off_ms,t_on_ms,torque_filter_alpha,use_pid,p_gain,i_gain,d_gain
+0.12,0,0.25,1.5,20,150,500,0.18,0.25,0.45,0.65,0.2,1,2500,0.3,0.04,50,300,0.35,0,0,0,0

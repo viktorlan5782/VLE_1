@@ -132,7 +132,14 @@ void ComsMCU::update_UART()
 
         if (msg.command)
         {
-            UART_command_utils::handle_msg(handler, _data, msg);
+            if (msg.command == UART_command_names::update_motion_telemetry && msg.is_raw)
+            {
+                _exo_ble->send_raw_bytes(msg.raw_data, msg.len);
+            }
+            else
+            {
+                UART_command_utils::handle_msg(handler, _data, msg);
+            }
         }
 
         del_t = 0;
@@ -152,7 +159,7 @@ void ComsMCU::update_gui()
 
     static Time_Helper* t_helper = Time_Helper::get_instance();
     static float my_mark = _data->mark;
-    static float* rt_floats = new float(rt_data::len);
+    static float* rt_floats = new float[rt_data::len];
 
     //Get real time data from ExoData and send to GUI
     const bool new_rt_data = real_time_i2c::poll(rt_floats);
@@ -314,6 +321,12 @@ void ComsMCU::_process_complete_gui_command(BleMessage* msg)
         break;
     case ble_names::reset_system:
         _schedule_system_reset();
+        break;
+    case ble_names::motion_stream_on:
+        ble_handlers::motion_stream_on(_data, msg);
+        break;
+    case ble_names::motion_stream_off:
+        ble_handlers::motion_stream_off(_data, msg);
         break;
     default:
         logger::println("ComsMCU::_process_complete_gui_command->No case for command!", LogLevel::Error);

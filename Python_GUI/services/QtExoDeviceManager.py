@@ -763,6 +763,34 @@ class QtExoDeviceManager(QtCore.QObject):
         self._submit(_do())
 
     @QtCore.Slot()
+    def enableMotionTelemetry(self):
+        if not self._ensure_connected():
+            return
+
+        async def _do():
+            try:
+                await self._client.write_gatt_char(UART_TX_UUID, b"V", response=False)
+                self.log.emit("Motion telemetry enabled")
+            except Exception as ex:
+                self.error.emit(str(ex))
+
+        self._submit(_do())
+
+    @QtCore.Slot()
+    def disableMotionTelemetry(self):
+        if not self._ensure_connected():
+            return
+
+        async def _do():
+            try:
+                await self._client.write_gatt_char(UART_TX_UUID, b"v", response=False)
+                self.log.emit("Motion telemetry disabled")
+            except Exception as ex:
+                self.error.emit(str(ex))
+
+        self._submit(_do())
+
+    @QtCore.Slot()
     def switchToAssist(self):
         if not self._ensure_connected():
             return

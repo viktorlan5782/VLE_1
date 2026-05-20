@@ -1,0 +1,2 @@
+source_file,cycle_index,start_sample_index,end_sample_index,start_time_s,end_time_s,stance_duration_s,swing_duration_s,peak_total_g,loading_rate_g_s,cop_ap_excursion_norm,cop_ml_excursion_norm,peak_tau_proxy_pf_nm,tau_proxy_impulse_nm_s,activity_hint,activity_pred,quality_flags
+2026-5-14_ramp_left.csv,0,2,3138,0.1,156.9,156.85,0.0,4842.0,3760.0,0.002147,0.002171,0.0,0.0,ramp,ambiguous_ramp,

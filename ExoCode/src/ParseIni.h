@@ -204,6 +204,7 @@ namespace config_defs
 		spv2 = 10,
 		pjmc_plus = 11,
         spline = 12,
+        dpjmc = 13,
 		
 		Count //Leave this at the end of the enum class. Count can be used to get the total number of controllers defined for this joint.
     };
@@ -607,6 +608,7 @@ namespace config_defs
 			{"SPV2", (uint8_t)config_defs::ankle_controllers::spv2},
 			{"PJMC_PLUS", (uint8_t)config_defs::ankle_controllers::pjmc_plus},
             {"spline", (uint8_t)config_defs::ankle_controllers::spline},
+            {"DPJMC", (uint8_t)config_defs::ankle_controllers::dpjmc},
         };  
 
         const IniKeyCode elbow_controllers

@@ -51,6 +51,8 @@ namespace ble_names
     static const char mark              = 'N';
     static const char update_param      = 'f';
     static const char reset_system      = 'Z';
+    static const char motion_stream_on  = 'V';
+    static const char motion_stream_off = 'v';
 
     //Sending Commands (Firmware->GUI)
     static const char send_real_time_data = '?';
@@ -85,6 +87,8 @@ namespace ble
         {ble_names::new_trq,            4},
         {ble_names::update_param,       4},
         {ble_names::reset_system,       0},
+        {ble_names::motion_stream_on,   0},
+        {ble_names::motion_stream_off,  0},
         
         //Sending Commands
         {ble_names::send_batt,              1},
@@ -454,7 +458,32 @@ namespace ble_handlers
 		Serial.print(tx_msg.data[(uint8_t)UART_command_enums::controller_param::PARAM_INDEX]);
 		Serial.print(", PARAM_VALUE: ");
 		Serial.print(tx_msg.data[(uint8_t)UART_command_enums::controller_param::PARAM_VALUE]);
-		#endif
+        #endif
+    }
+
+    inline static void set_motion_stream(ExoData* data, bool enabled)
+    {
+        data->motion_telemetry_enabled = enabled;
+
+        UARTHandler* uart_handler = UARTHandler::get_instance();
+        UART_msg_t tx_msg = {0};
+        tx_msg.command = UART_command_names::update_motion_telemetry_control;
+        tx_msg.joint_id = 0;
+        tx_msg.data[(uint8_t)UART_command_enums::motion_telemetry_control::ENABLE] = enabled ? 1.0f : 0.0f;
+        tx_msg.len = (uint8_t)UART_command_enums::motion_telemetry_control::LENGTH;
+        uart_handler->UART_msg(tx_msg);
+    }
+
+    inline static void motion_stream_on(ExoData* data, BleMessage* msg)
+    {
+        (void)msg;
+        set_motion_stream(data, true);
+    }
+
+    inline static void motion_stream_off(ExoData* data, BleMessage* msg)
+    {
+        (void)msg;
+        set_motion_stream(data, false);
     }
 
 }

@@ -59,6 +59,55 @@
         const float FSR_LOWER_THRESHOLD = 0.15;
         const float SCHMITT_DELTA = (FSR_UPPER_THRESHOLD - FSR_LOWER_THRESHOLD)/2;
     }
+
+    namespace insole_high_level
+    {
+        const uint8_t ZONE_COUNT = 18;
+
+        // Timing: pressure insole raw packet stream is expected at 20 Hz while the firmware loop runs at 500 Hz.
+        const uint32_t EXPECTED_PACKET_PERIOD_US = 50000;
+        const uint32_t FRAME_TIMEOUT_US = 150000;
+        const uint32_t ZERO_REFRESH_HOLD_US = 250000;
+        const uint32_t ZERO_REFRESH_STALE_US = 10000000;
+        const uint32_t EXPECTED_STANCE_US = 650000;
+        const uint32_t BILATERAL_SWING_FAULT_US = 300000;
+        const uint32_t MOTION_STATE_RECENT_EVENT_US = 2000000;
+
+        // Pressure units are grams. Positive values mean compressive normal load.
+        const float ZONE_MIN_G = 0.0f;
+        const float ZONE_MAX_G = 65535.0f;
+        const float SATURATION_THRESHOLD_G = 65000.0f;
+        const float NO_LOAD_THRESHOLD_G = 200.0f;
+        const float COP_MIN_TOTAL_G = 200.0f;
+        const float TOTAL_STANCE_THRESHOLD_G = 2000.0f;
+        const float FOREFOOT_THRESHOLD_G = 600.0f;
+        const float ARCH_THRESHOLD_G = 400.0f;
+        const float HEEL_THRESHOLD_G = 800.0f;
+        const float STANCE_ON_FACTOR = 1.05f;
+        const float SWING_OFF_FACTOR = 0.95f;
+        const uint8_t MIN_STATE_FRAMES = 3;
+
+        // Filter and zero-refresh parameters. The method is deterministic median spike rejection + EWMA.
+        const float FILTER_EWMA_ALPHA = 0.35f;
+        const float ZERO_REFRESH_EWMA_ALPHA = 0.01f;
+        const float SPIKE_REJECTION_DELTA_G = 3000.0f;
+
+        // COP and pressure-only ankle biological moment proxy.
+        const float FOOT_LENGTH_M = 0.21089f;
+        const float DEFAULT_ANKLE_X_AP_NORM = 0.18f;
+        const float DEFAULT_TAU_PROXY_SCALE = 1.0f;
+        const float TAU_PROXY_LIMIT_NM = 200.0f;
+        const float ML_DEVIATION_THRESHOLD_NORM = 0.15f;
+    }
+
+    namespace insole_can_config
+    {
+        // Pressure-insole CAN IDs are intentionally far from the motor-ID range (0x000-0x00A)
+        // so sensor traffic stays easy to isolate during bring-up and bus debugging.
+        const uint32_t LEFT_PRESSURE_CAN_ID = 0x601;   // Standard CAN ID carrying left-foot TTL fragments.
+        const uint32_t RIGHT_PRESSURE_CAN_ID = 0x602;  // Standard CAN ID carrying right-foot TTL fragments.
+        const uint32_t FRAGMENT_TIMEOUT_US = 30000;    // us, max gap inside one 39-byte pressure packet.
+    }
 	
 	namespace angle_sensor
 	{

@@ -171,6 +171,7 @@ class ExoData
         int error_code;         /**< Current error code for the system */
         int error_joint_id;
         bool user_paused;       /**< If the user has paused the system */
+        bool motion_telemetry_enabled; /**< Enable page-scoped binary motion telemetry stream. */
 
         int hip_torque_flag = 0;    /**< Flag to determine if we want to use torque sensor for that joint */
         int knee_torque_flag = 0;   /**< Flag to determine if we want to use torque sensor for that joint */

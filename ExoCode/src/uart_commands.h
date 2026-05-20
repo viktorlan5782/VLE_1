@@ -48,6 +48,9 @@ namespace UART_command_names
     static const uint8_t update_FSR_thesholds = 0x18;
     static const uint8_t get_system_reset = 0x19;
     static const uint8_t update_system_reset = 0x1A;
+    static const uint8_t get_motion_telemetry_control = 0x1B;
+    static const uint8_t update_motion_telemetry_control = 0x1C;
+    static const uint8_t update_motion_telemetry = 0x1D;
 };
 
 /**
@@ -104,6 +107,11 @@ namespace UART_command_enums
     {
 
     };
+    enum class motion_telemetry_control : uint8_t
+    {
+        ENABLE = 0,
+        LENGTH
+    };
     enum class get_error_code : uint8_t
     {
         ERROR_CODE = 0,
@@ -150,6 +158,27 @@ namespace UART_command_handlers
         }
 
         return j_data->controller.filtered_torque_reading;
+    }
+
+    inline static bool ankle_is_dpjmc(SideData *side_data)
+    {
+        return (side_data != NULL) &&
+               (side_data->ankle.controller.controller == (uint8_t)config_defs::ankle_controllers::dpjmc);
+    }
+
+    inline static void fill_dpjmc_rt_data(float* data, SideData *side_data, bool use_torque_sensor, float battery_v)
+    {
+        data[0] = measured_torque_for_plot(&side_data->ankle, use_torque_sensor);
+        data[1] = side_data->ankle.controller.desired_torque;
+        data[2] = side_data->ankle.controller.dpjmc_alpha;
+        data[3] = side_data->ankle.controller.dpjmc_tau_des_pf_nm;
+        data[4] = side_data->dpjmc_hl.p_total;
+        data[5] = side_data->dpjmc_hl.cop_ap_norm;
+        data[6] = side_data->dpjmc_hl.cop_ml_norm;
+        data[7] = (float)side_data->ankle.controller.dpjmc_state;
+        data[8] = (float)(side_data->ankle.controller.dpjmc_fault_flags & 0x00FFFFFFUL);
+        data[9] = (float)millis() / 1000.0f;
+        data[10] = battery_v;
     }
 
     inline static void get_controller_params(UARTHandler *handler, ExoData *exo_data, UART_msg_t msg)
@@ -333,7 +362,25 @@ namespace UART_command_handlers
         case (uint8_t)config_defs::exo_name::bilateral_ankle:
 		{
             rx_msg.len = (uint8_t)rt_data::BILATERAL_ANKLE_RT_LEN;
-            rx_msg.data[0] = exo_data->left_side.ankle.controller.desired_torque;
+            const uint8_t exo_side = config[config_defs::exo_side_idx];
+            const bool use_ankle_torque_sensor =
+                config[config_defs::ankle_use_torque_sensor_idx] == (uint8_t)config_defs::use_torque_sensor::yes;
+
+            if ((exo_side == (uint8_t)config_defs::exo_side::left) &&
+                ankle_is_dpjmc(&exo_data->left_side))
+            {
+                fill_dpjmc_rt_data(rx_msg.data, &exo_data->left_side, use_ankle_torque_sensor, exo_data->get_batt_info(0));
+                break;
+            }
+
+            if ((exo_side == (uint8_t)config_defs::exo_side::right) &&
+                ankle_is_dpjmc(&exo_data->right_side))
+            {
+                fill_dpjmc_rt_data(rx_msg.data, &exo_data->right_side, use_ankle_torque_sensor, exo_data->get_batt_info(0));
+                break;
+            }
+
+			rx_msg.data[0] = exo_data->left_side.ankle.controller.desired_torque;
             rx_msg.data[1] = exo_data->left_side.ankle.controller.filtered_torque_reading;
 			rx_msg.data[2] = exo_data->right_side.ankle.controller.desired_torque;
 			rx_msg.data[3] = exo_data->right_side.ankle.controller.filtered_torque_reading;
@@ -541,6 +588,18 @@ namespace UART_command_handlers
             rt_data::float_values[i] = msg.data[i];
         }
         rt_data::new_rt_msg = true;
+    }
+
+    inline static void update_motion_telemetry_control(UARTHandler *handler, ExoData *exo_data, UART_msg_t msg)
+    {
+        (void)handler;
+        if (msg.len < (uint8_t)UART_command_enums::motion_telemetry_control::LENGTH)
+        {
+            return;
+        }
+
+        exo_data->motion_telemetry_enabled =
+            msg.data[(uint8_t)UART_command_enums::motion_telemetry_control::ENABLE] > 0.5f;
     }
 
     inline static void update_controller_param(UARTHandler *handler, ExoData *exo_data, UART_msg_t msg)
@@ -852,6 +911,9 @@ namespace UART_command_utils
             break;
         case UART_command_names::get_system_reset:
             UART_command_handlers::get_system_reset(handler, exo_data, msg);
+            break;
+        case UART_command_names::update_motion_telemetry_control:
+            UART_command_handlers::update_motion_telemetry_control(handler, exo_data, msg);
             break;
 
 

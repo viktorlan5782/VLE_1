@@ -26,8 +26,8 @@
 
 static volatile bool new_bytes = false;
 static const int byte_buffer_len = rt_data::len * sizeof(float)/sizeof(short int) + 2;
-static uint8_t* const byte_buffer = new uint8_t(byte_buffer_len);
-static float* float_values = new float(rt_data::len);
+static uint8_t* const byte_buffer = new uint8_t[byte_buffer_len];
+static float* float_values = new float[rt_data::len];
 
 static uint8_t _packed_len(uint8_t len)
 {

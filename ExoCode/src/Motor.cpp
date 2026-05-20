@@ -939,12 +939,34 @@ void PdaMotor::read_data()
     CAN_message_t msg;
 
     uint8_t frames_read = 0;
-    while ((frames_read < 8) && can->read(msg))
+    while ((frames_read < 8) && can->read_matching(msg, PdaMotor::_is_pda_can_frame, this))
     {
         const bool decoded_feedback = _decode_any_pda_feedback(msg);
         _debug_print_rx(msg, decoded_feedback);
         frames_read++;
     }
+}
+
+bool PdaMotor::_is_pda_can_frame(const CAN_message_t& msg, void* context)
+{
+    PdaMotor* self = static_cast<PdaMotor*>(context);
+    if (self == NULL || msg.flags.extended || msg.len < 8)
+    {
+        return false;
+    }
+
+    const uint8_t pda_id = (uint8_t)((msg.id & 0x07E0) >> 5);
+    if (pda_id < 1 || pda_id > 63)
+    {
+        return false;
+    }
+
+    if (self->_get_pda_motor_data_by_pda_id(pda_id) != NULL)
+    {
+        return true;
+    }
+
+    return pda_config::AUTO_DETECT_CAN_ID && self->_can_autodetect_this_motor();
 }
 
 bool PdaMotor::_is_feedback_frame(const CAN_message_t& msg) const

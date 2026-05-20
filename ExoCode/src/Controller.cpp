@@ -193,6 +193,20 @@ float _Controller::_cf_mfac(float reference, float current_measurement)         
 }
 
 //****************************************************
+
+void _Controller::reset_integral()
+{
+    _pid_error_sum = 0.0f;
+    _prev_de_dt = 0.0f;
+    _prev_input = (_joint_data != nullptr) ? _joint_data->torque_reading : 0.0f;
+    _prev_pid_time = micros();
+    if (_t_helper != nullptr)
+    {
+        (void)_t_helper->tick(_t_helper_context);
+    }
+}
+
+//****************************************************
  
 float _Controller::_pid(float cmd, float measurement, float p_gain, float i_gain, float d_gain)
 {	
@@ -698,6 +712,272 @@ float ProportionalJointMoment::calc_motor_cmd()
     _controller_data->desired_torque = _controller_data->filtered_setpoint;
 
     /* Send the motor the command. */
+    return _controller_data->filtered_cmd;
+}
+
+//****************************************************
+
+DPJMC::DPJMC(config_defs::joint_id id, ExoData* exo_data)
+: _Controller(id, exo_data)
+{
+    #ifdef CONTROLLER_DEBUG
+        logger::println("DPJMC::Constructor");
+    #endif
+}
+
+float DPJMC::_calc_pressure_age_ms(uint32_t now_us, uint32_t timestamp_us) const
+{
+    if (timestamp_us == 0)
+    {
+        return 1000000000.0f;
+    }
+
+    return (float)(now_us - timestamp_us) / 1000.0f;
+}
+
+float DPJMC::_calc_tau_proxy_nm(const DPJMCHighLevelInput& hl) const
+{
+    if (hl.tau_proxy_valid)
+    {
+        return hl.tau_proxy_nm;
+    }
+
+    const float ankle_x_ap_norm = _controller_data->parameters[controller_defs::dpjmc::ankle_x_ap_norm_idx];
+    const float tau_proxy_scale_nm = _controller_data->parameters[controller_defs::dpjmc::tau_proxy_scale_nm_idx];
+    return hl.p_total * (hl.cop_ap_norm - ankle_x_ap_norm) * tau_proxy_scale_nm;
+}
+
+float DPJMC::_calc_alpha_target(const DPJMCHighLevelInput& hl) const
+{
+    const float alpha_base = _controller_data->parameters[controller_defs::dpjmc::alpha_base_idx];
+    const float alpha_min_param = _controller_data->parameters[controller_defs::dpjmc::alpha_min_idx];
+    const float alpha_max_param = _controller_data->parameters[controller_defs::dpjmc::alpha_max_idx];
+    const float alpha_low = min(alpha_min_param, alpha_max_param);
+    const float alpha_high = max(alpha_min_param, alpha_max_param);
+
+    const float forefoot_threshold = _controller_data->parameters[controller_defs::dpjmc::cop_ap_forefoot_on_norm_idx];
+    const float k_ap_pos = _controller_data->parameters[controller_defs::dpjmc::k_ap_pos_idx];
+    const float k_ap_vel = _controller_data->parameters[controller_defs::dpjmc::k_ap_vel_idx];
+
+    const float ap_position_lag = max(0.0f, forefoot_threshold - hl.cop_ap_norm);
+    const float ap_velocity_lag = max(0.0f, -hl.cop_ap_dot_norm_s);
+    const float alpha_raw = alpha_base + (k_ap_pos * ap_position_lag) + (k_ap_vel * ap_velocity_lag);
+
+    return constrain(alpha_raw, alpha_low, alpha_high);
+}
+
+bool DPJMC::_is_perturbed(const DPJMCHighLevelInput& hl) const
+{
+    const float cop_ml_dev_threshold = _controller_data->parameters[controller_defs::dpjmc::cop_ml_dev_threshold_norm_idx];
+    const float cop_ml_dot_threshold = _controller_data->parameters[controller_defs::dpjmc::cop_ml_dot_threshold_norm_s_idx];
+    const float ml_pressure_diff_threshold = _controller_data->parameters[controller_defs::dpjmc::ml_pressure_diff_threshold_idx];
+
+    if ((cop_ml_dev_threshold > 0.0f) && (fabsf(hl.cop_ml_norm) > cop_ml_dev_threshold))
+    {
+        return true;
+    }
+
+    if ((cop_ml_dot_threshold > 0.0f) && (fabsf(hl.cop_ml_dot_norm_s) > cop_ml_dot_threshold))
+    {
+        return true;
+    }
+
+    if ((ml_pressure_diff_threshold > 0.0f) && (fabsf(hl.p_medial - hl.p_lateral) > ml_pressure_diff_threshold))
+    {
+        return true;
+    }
+
+    return false;
+}
+
+float DPJMC::_apply_tau_slew(float target_tau_pf_nm, float dt_s)
+{
+    const float tau_slew_rate_nm_s = _controller_data->parameters[controller_defs::dpjmc::tau_slew_rate_nm_s_idx];
+
+    if (tau_slew_rate_nm_s <= 0.0f)
+    {
+        if (target_tau_pf_nm > _previous_tau_des_pf_nm)
+        {
+            return _previous_tau_des_pf_nm;
+        }
+        return target_tau_pf_nm;
+    }
+
+    const float max_step_nm = tau_slew_rate_nm_s * dt_s;
+    const float delta_nm = constrain(target_tau_pf_nm - _previous_tau_des_pf_nm, -max_step_nm, max_step_nm);
+    return _previous_tau_des_pf_nm + delta_nm;
+}
+
+float DPJMC::_set_zero_output(uint8_t state, uint32_t fault_flags, float pressure_age_ms)
+{
+    _alpha = 0.0f;
+    _alpha_unload_start = 0.0f;
+    _alpha_recovery_start = 0.0f;
+    _alpha_recovery_target = 0.0f;
+    _previous_tau_des_pf_nm = 0.0f;
+    _was_perturbed = false;
+    _unload_start_us = 0;
+    _recovery_start_us = 0;
+    reset_integral();
+
+    _controller_data->filtered_cmd = 0.0f;
+    _controller_data->filtered_setpoint = 0.0f;
+    _controller_data->ff_setpoint = 0.0f;
+    _controller_data->desired_torque = 0.0f;
+    _controller_data->dpjmc_alpha = 0.0f;
+    _controller_data->dpjmc_tau_proxy_nm = 0.0f;
+    _controller_data->dpjmc_tau_des_pf_nm = 0.0f;
+    _controller_data->dpjmc_pressure_age_ms = pressure_age_ms;
+    _controller_data->dpjmc_state = state;
+    _controller_data->dpjmc_motion_intent = _side_data->dpjmc_hl.motion_intent;
+    _controller_data->dpjmc_fault_flags = fault_flags;
+
+    return 0.0f;
+}
+
+float DPJMC::calc_motor_cmd()
+{
+    #ifdef CONTROLLER_DEBUG
+        logger::println("DPJMC::calc_motor_cmd : start");
+    #endif
+
+    const uint32_t now_us = micros();
+    float dt_s = 1.0f / LOOP_FREQ_HZ;
+    if (_last_update_us != 0)
+    {
+        const float measured_dt_s = (float)(now_us - _last_update_us) / 1000000.0f;
+        if (measured_dt_s > 0.0f)
+        {
+            dt_s = measured_dt_s;
+        }
+    }
+    _last_update_us = now_us;
+
+    const DPJMCHighLevelInput& hl = _side_data->dpjmc_hl;
+    const float pressure_age_ms = _calc_pressure_age_ms(now_us, hl.timestamp_us);
+    const float pressure_timeout_ms = _controller_data->parameters[controller_defs::dpjmc::pressure_timeout_ms_idx];
+    const float p_total_min = _controller_data->parameters[controller_defs::dpjmc::p_total_min_idx];
+
+    uint32_t fault_flags = FaultNone;
+    if (!hl.pressure_valid) { fault_flags |= FaultPressureInvalid; }
+    if (!hl.cop_valid) { fault_flags |= FaultCopInvalid; }
+    if ((pressure_timeout_ms <= 0.0f) || (pressure_age_ms > pressure_timeout_ms)) { fault_flags |= FaultPressureTimeout; }
+    if (hl.p_total <= p_total_min) { fault_flags |= FaultLowPressure; }
+    if (hl.fault_flags != 0) { fault_flags |= FaultHighLevel; }
+    if (hl.intent_unload_request) { fault_flags |= FaultIntentUnload; }
+
+    if (fault_flags != FaultNone)
+    {
+        return _set_zero_output(StateZeroAssist, fault_flags | hl.fault_flags, pressure_age_ms);
+    }
+
+    const bool perturbed = _is_perturbed(hl);
+    const float alpha_target = _calc_alpha_target(hl);
+    uint8_t state = StateAssist;
+
+    if (perturbed)
+    {
+        if (!_was_perturbed)
+        {
+            _was_perturbed = true;
+            _unload_start_us = now_us;
+            _alpha_unload_start = _alpha;
+            _recovery_start_us = 0;
+        }
+
+        const float t_off_s = max(0.001f, _controller_data->parameters[controller_defs::dpjmc::t_off_ms_idx] / 1000.0f);
+        const float elapsed_s = (float)(now_us - _unload_start_us) / 1000000.0f;
+        _alpha = _alpha_unload_start * expf(-elapsed_s / t_off_s);
+        state = StateTransitionUnload;
+    }
+    else
+    {
+        if (_was_perturbed)
+        {
+            _was_perturbed = false;
+            _recovery_start_us = now_us;
+            _alpha_recovery_start = _alpha;
+            _alpha_recovery_target = alpha_target;
+        }
+
+        if (_recovery_start_us != 0)
+        {
+            _alpha_recovery_target = alpha_target;
+            const float t_off_s = max(0.001f, _controller_data->parameters[controller_defs::dpjmc::t_off_ms_idx] / 1000.0f);
+            const float t_on_s = max(t_off_s + 0.001f, _controller_data->parameters[controller_defs::dpjmc::t_on_ms_idx] / 1000.0f);
+            const float elapsed_s = (float)(now_us - _recovery_start_us) / 1000000.0f;
+            const float recovery_fraction = 1.0f - expf(-elapsed_s / t_on_s);
+            _alpha = _alpha_recovery_start + ((_alpha_recovery_target - _alpha_recovery_start) * recovery_fraction);
+            state = StateRecovery;
+
+            if ((elapsed_s > (4.0f * t_on_s)) || (fabsf(_alpha_recovery_target - _alpha) < 0.001f))
+            {
+                _alpha = _alpha_recovery_target;
+                _recovery_start_us = 0;
+                state = StateAssist;
+            }
+        }
+        else
+        {
+            _alpha = alpha_target;
+        }
+    }
+
+    _alpha = constrain(_alpha, 0.0f, max(0.0f, _controller_data->parameters[controller_defs::dpjmc::alpha_max_idx]));
+
+    float tau_proxy_nm = _calc_tau_proxy_nm(hl);
+    tau_proxy_nm = max(0.0f, tau_proxy_nm);
+    const float tau_max_nm = max(0.0f, _controller_data->parameters[controller_defs::dpjmc::tau_max_nm_idx]);
+    const float tau_target_pf_nm = constrain(_alpha * tau_proxy_nm, 0.0f, tau_max_nm);
+    float tau_des_pf_nm = _apply_tau_slew(tau_target_pf_nm, dt_s);
+    tau_des_pf_nm = constrain(tau_des_pf_nm, 0.0f, tau_max_nm);
+
+    const float filter_alpha = _controller_data->parameters[controller_defs::dpjmc::torque_filter_alpha_idx];
+    if ((filter_alpha > 0.0f) && (filter_alpha < 1.0f))
+    {
+        tau_des_pf_nm = utils::ewma(tau_des_pf_nm, _controller_data->dpjmc_tau_des_pf_nm, filter_alpha);
+    }
+
+    _previous_tau_des_pf_nm = tau_des_pf_nm;
+
+    // DPJMC internal positive torque is plantarflexion; OpenExo ankle positive command is dorsiflexion.
+    const float cmd_ff_openexo_nm = -tau_des_pf_nm;
+    float cmd_openexo_nm = cmd_ff_openexo_nm;
+
+    const float torque_alpha = ((filter_alpha > 0.0f) && (filter_alpha <= 1.0f)) ? filter_alpha : 0.5f;
+    _controller_data->filtered_torque_reading = utils::ewma(_joint_data->torque_reading, _controller_data->filtered_torque_reading, torque_alpha);
+
+    const bool use_pid = (_controller_data->parameters[controller_defs::dpjmc::use_pid_idx] > 0.5f);
+    const bool torque_sensor_enabled = (_data->ankle_torque_flag == 1);
+    if (use_pid && torque_sensor_enabled)
+    {
+        cmd_openexo_nm = _pid(cmd_ff_openexo_nm,
+                              _controller_data->filtered_torque_reading,
+                              _controller_data->parameters[controller_defs::dpjmc::p_gain_idx],
+                              _controller_data->parameters[controller_defs::dpjmc::i_gain_idx],
+                              _controller_data->parameters[controller_defs::dpjmc::d_gain_idx]);
+    }
+    else
+    {
+        reset_integral();
+    }
+
+    _controller_data->filtered_cmd = cmd_openexo_nm;
+    _controller_data->filtered_setpoint = cmd_ff_openexo_nm;
+    _controller_data->ff_setpoint = cmd_ff_openexo_nm;
+    _controller_data->desired_torque = cmd_ff_openexo_nm;
+    _controller_data->dpjmc_alpha = _alpha;
+    _controller_data->dpjmc_tau_proxy_nm = tau_proxy_nm;
+    _controller_data->dpjmc_tau_des_pf_nm = tau_des_pf_nm;
+    _controller_data->dpjmc_pressure_age_ms = pressure_age_ms;
+    _controller_data->dpjmc_state = (_alpha <= 0.0f && tau_des_pf_nm <= 0.0f) ? StateZeroAssist : state;
+    _controller_data->dpjmc_motion_intent = hl.motion_intent;
+    _controller_data->dpjmc_fault_flags = FaultNone;
+
+    #ifdef CONTROLLER_DEBUG
+        logger::println("DPJMC::calc_motor_cmd : stop");
+    #endif
+
     return _controller_data->filtered_cmd;
 }
 

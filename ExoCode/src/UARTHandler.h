@@ -68,6 +68,7 @@ class UARTHandler
          */
         void UART_msg(uint8_t msg_id, uint8_t len, uint8_t joint_id, float *buffer);
         void UART_msg(UART_msg_t msg);
+        void UART_raw_msg(uint8_t msg_id, uint8_t joint_id, const uint8_t* payload, uint8_t len);
 
         /**
          * @brief Check for incoming data. If there is data read the message, timing out if it takes too long.

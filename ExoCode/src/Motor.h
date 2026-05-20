@@ -369,6 +369,7 @@ class PdaMotor : public _Motor
         void _run_can_id_autodetect();
         void _adopt_pda_id(uint8_t pda_id);
         void _handle_timeout();
+        static bool _is_pda_can_frame(const CAN_message_t& msg, void* context);
         void _debug_print_tx(uint8_t pda_id, uint8_t cmd_id, const uint8_t* data, const char* label);
         void _debug_print_rx(const CAN_message_t& msg, bool decoded_feedback);
         void _debug_print_status(const char* label);

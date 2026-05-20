@@ -7,7 +7,7 @@
  * @date Jan. 2022
 */
 
-#ifndef Controllerdata_h
+#ifndef ControllerData_h
 #define ControllerData_h
 #include <stdint.h>
 
@@ -46,6 +46,34 @@ namespace controller_defs                   /**< Stores the parameter indexes fo
         const uint8_t ki_zero = 10;
         const uint8_t kd_zero = 11;
         const uint8_t num_parameter = 12;
+    }
+
+    namespace dpjmc
+    {
+        const uint8_t alpha_base_idx = 0;                   //Baseline dynamic proportional gain, dimensionless
+        const uint8_t alpha_min_idx = 1;                    //Minimum dynamic gain, dimensionless
+        const uint8_t alpha_max_idx = 2;                    //Maximum dynamic gain, dimensionless
+        const uint8_t tau_max_nm_idx = 3;                   //Maximum plantarflexion assistance torque, Nm
+        const uint8_t tau_slew_rate_nm_s_idx = 4;           //Maximum torque command rate, Nm/s
+        const uint8_t pressure_timeout_ms_idx = 5;          //Maximum accepted pressure age, ms
+        const uint8_t p_total_min_idx = 6;                  //Minimum valid total pressure, native pressure units
+        const uint8_t ankle_x_ap_norm_idx = 7;              //Ankle AP location in normalized foot coordinates
+        const uint8_t tau_proxy_scale_nm_idx = 8;           //Scale from pressure moment proxy to Nm-equivalent torque
+        const uint8_t cop_ap_midfoot_on_norm_idx = 9;       //Reserved FSM threshold, normalized AP COP
+        const uint8_t cop_ap_forefoot_on_norm_idx = 10;     //Reserved FSM threshold, normalized AP COP
+        const uint8_t cop_ml_dev_threshold_norm_idx = 11;   //ML COP deviation threshold, normalized foot width
+        const uint8_t cop_ml_dot_threshold_norm_s_idx = 12; //ML COP velocity threshold, normalized foot width/s
+        const uint8_t ml_pressure_diff_threshold_idx = 13;  //Medial-lateral pressure difference threshold
+        const uint8_t k_ap_pos_idx = 14;                    //AP COP position modulation gain
+        const uint8_t k_ap_vel_idx = 15;                    //AP COP velocity modulation gain
+        const uint8_t t_off_ms_idx = 16;                    //Fast unloading time constant, ms
+        const uint8_t t_on_ms_idx = 17;                     //Slow recovery time constant, ms
+        const uint8_t torque_filter_alpha_idx = 18;         //EWMA alpha for torque command filtering
+        const uint8_t use_pid_idx = 19;                     //Flag to use torque-sensor PID contribution
+        const uint8_t p_gain_idx = 20;                      //PID proportional gain
+        const uint8_t i_gain_idx = 21;                      //PID integral gain
+        const uint8_t d_gain_idx = 22;                      //PID derivative gain
+        const uint8_t num_parameter = 23;
     }
 
     namespace zhang_collins
@@ -241,7 +269,7 @@ namespace controller_defs                   /**< Stores the parameter indexes fo
         const uint8_t num_parameter = 17;
     }
 
-    const uint8_t max_parameters = spv2::num_parameter;         //This should be the largest of all the num_parameters
+    const uint8_t max_parameters = dpjmc::num_parameter;        //This should be the largest of all the num_parameters
 }
 
 /**
@@ -279,6 +307,13 @@ class ControllerData {
         float filtered_torque_reading;                      /**< Filtered torque reading, used for filtering torque signal */
         float filtered_cmd;                                 /**< Filtered command, used for filtering motor commands */
         float filtered_setpoint;                            /**< Filtered setpoint for the controller */
+        float dpjmc_alpha = 0;                              /**< DPJMC dynamic proportional gain, dimensionless */
+        float dpjmc_tau_proxy_nm = 0;                       /**< DPJMC plantar-pressure torque proxy, Nm-equivalent */
+        float dpjmc_tau_des_pf_nm = 0;                      /**< DPJMC plantarflexion-positive desired torque, Nm */
+        float dpjmc_pressure_age_ms = 0;                    /**< DPJMC pressure input age, ms */
+        uint8_t dpjmc_state = 0;                            /**< DPJMC internal state for plotting and diagnostics */
+        uint8_t dpjmc_motion_intent = 0;                    /**< Motion-intent label from the high-level interface */
+        uint32_t dpjmc_fault_flags = 0;                     /**< DPJMC fault flags from safety checks */
         
         //Variables for Auto Kf in the PID Controller
         float kf = 1;                                       /**< Gain for the controller */
